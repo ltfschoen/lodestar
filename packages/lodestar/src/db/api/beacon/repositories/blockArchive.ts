@@ -5,7 +5,7 @@ import {bytesToInt, intToBytes} from "@chainsafe/lodestar-utils";
 import {IDatabaseController, IFilterOptions} from "../../../controller";
 import {Bucket, encodeKey} from "../../schema";
 import {ArrayLike} from "@chainsafe/ssz";
-import {Id, Repository} from "./abstract";
+import {Repository} from "./abstract";
 
 export interface IBlockFilterOptions extends IFilterOptions<Slot> {
   step?: number;
@@ -26,7 +26,8 @@ export class BlockArchiveRepository extends Repository<Slot, SignedBeaconBlock> 
   public async add(value: SignedBeaconBlock): Promise<void> {
     await Promise.all([
       super.add(value),
-      this.storeRootRef(value)
+      this.storeRootIndex(value),
+      this.storeParentRootIndex(value)
     ]);
   }
 
@@ -38,12 +39,17 @@ export class BlockArchiveRepository extends Repository<Slot, SignedBeaconBlock> 
     return null;
   }
 
+  public async getByParentRoot(root: Root): Promise<SignedBeaconBlock|null> {
+    const slot = await this.getSlotByParenRoot(root);
+    if(Number.isInteger(slot)) {
+      return this.get(slot);
+    }
+    return null;
+  }
+
   public async getSlotByRoot(root: Root): Promise<Slot|null> {
     const value = await this.db.get(
-      encodeKey(
-        Bucket.blockArchiveRootRef,
-        root.valueOf() as Uint8Array
-      )
+      this.getRootIndexKey(root)
     );
     if(value) {
       return bytesToInt(value, "be");
@@ -51,11 +57,21 @@ export class BlockArchiveRepository extends Repository<Slot, SignedBeaconBlock> 
     return null;
   }
 
+  public async getSlotByParenRoot(root: Root): Promise<Slot|null> {
+    const value = await this.db.get(
+      this.getParentRootIndexKey(root)
+    );
+    if(value) {
+      return bytesToInt(value, "be");
+    }
+    return null;
+  }
 
   public async batchAdd(values: ArrayLike<SignedBeaconBlock>): Promise<void> {
     await Promise.all([
       super.batchAdd(values),
-      ...Array.from(values).map((block) => this.storeRootRef(block))
+      ...Array.from(values).map((block) => this.storeRootIndex(block)),
+      ...Array.from(values).map((block) => this.storeParentRootIndex(block))
     ]);
   }
 
@@ -91,17 +107,25 @@ export class BlockArchiveRepository extends Repository<Slot, SignedBeaconBlock> 
     })();
   }
 
-  private async storeRootRef(block: SignedBeaconBlock): Promise<void> {
+  private async storeRootIndex(block: SignedBeaconBlock): Promise<void> {
     return this.db.put(
-      encodeKey(
-        Bucket.blockArchiveRootRef,
-        this.config.types.BeaconBlock.hashTreeRoot(block.message)
-      ),
+      this.getRootIndexKey(this.config.types.BeaconBlock.hashTreeRoot(block.message)),
       intToBytes(block.message.slot, 64, "be")
     );
   }
 
-  private getParentIndexKey(parentRoot: Root): Id {
+  private async storeParentRootIndex(block: SignedBeaconBlock): Promise<void> {
+    return this.db.put(
+      this.getParentRootIndexKey(block.message.parentRoot),
+      intToBytes(block.message.slot, 64, "be")
+    );
+  }
+
+  private getParentRootIndexKey(parentRoot: Root): Buffer {
     return encodeKey(Bucket.blockArchiveParentRootIndex, parentRoot.valueOf() as Uint8Array);
+  }
+
+  private getRootIndexKey(root: Root): Buffer {
+    return encodeKey(Bucket.blockArchiveRootIndex, root.valueOf() as Uint8Array);
   }
 }
