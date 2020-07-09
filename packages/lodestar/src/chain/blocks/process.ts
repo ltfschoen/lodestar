@@ -21,9 +21,8 @@ export function processBlock(
 ): (source: AsyncIterable<IBlockProcessJob>) =>
   AsyncGenerator<{
     preStateContext: ITreeStateContext;
-    block: SignedBeaconBlock;
     postStateContext: ITreeStateContext;
-    finalized: boolean;
+    job: IBlockProcessJob;
   }> {
   return (source) => {
     return (async function*() {
@@ -66,8 +65,7 @@ export function processBlock(
         yield {
           preStateContext,
           postStateContext: postTreeStateContext,
-          block: job.signedBlock,
-          finalized: job.trusted
+          job
         };
       }
     })();

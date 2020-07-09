@@ -58,9 +58,14 @@ export class TasksService implements IService {
     await this.interopSubnetsTask.stop();
   }
 
+  /**
+   * Store blocks then the finalized state to make sure we always have finalized block from
+   * a finalized state when we restart.
+   * @param finalizedCheckpoint
+   */
   private handleFinalizedCheckpointChores = async (finalizedCheckpoint: Checkpoint): Promise<void> => {
-    new ArchiveBlocksTask(this.config, {db: this.db, logger: this.logger}, finalizedCheckpoint).run();
-    new ArchiveStatesTask(this.config, {db: this.db, logger: this.logger}, finalizedCheckpoint).run();
+    await new ArchiveBlocksTask(this.config, {db: this.db, logger: this.logger}, finalizedCheckpoint).run();
+    await new ArchiveStatesTask(this.config, {db: this.db, logger: this.logger}, finalizedCheckpoint).run();
   };
 
 }

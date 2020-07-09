@@ -211,8 +211,10 @@ export class BeaconChain extends (EventEmitter as { new(): ChainEventEmitter }) 
       !this.config.types.Root.equals(genesisBlock.stateRoot, storedGenesisBlock.message.stateRoot)) {
       throw new Error("A genesis state with different configuration was detected! Please clean the database.");
     }
+    const signedGenesisBlock = {message: genesisBlock, signature: EMPTY_SIGNATURE};
     await Promise.all([
-      this.db.block.add({message: genesisBlock, signature: EMPTY_SIGNATURE}),
+      this.db.block.add(signedGenesisBlock),
+      this.db.blockArchive.add(signedGenesisBlock),
       this.db.stateArchive.add(genesisState),
     ]);
     this.logger.info("Beacon chain initialized");
@@ -232,7 +234,7 @@ export class BeaconChain extends (EventEmitter as { new(): ChainEventEmitter }) 
 
   public async waitForBlockProcessed(blockRoot: Uint8Array): Promise<void> {
     await new Promise((resolve) => {
-      this.once("processedBlock", (signedBlock) => {
+      this.on("processedBlock", (signedBlock) => {
         const root = this.config.types.BeaconBlock.hashTreeRoot(signedBlock.message);
         if (this.config.types.Root.equals(root, blockRoot)) {
           resolve();
@@ -263,18 +265,8 @@ export class BeaconChain extends (EventEmitter as { new(): ChainEventEmitter }) 
     const lastBlock = sortedBlocks[sortedBlocks.length - 1];
     let firstSlot = firstBlock.message.slot;
     let lastSlot = lastBlock.message.slot;
-    this.logger.info(
-      `Found ${sortedBlocks.length} nonfinalized blocks in database from slot ${firstSlot} to ${lastSlot}`
-    );
-    // initially we initialize database with genesis block
-    if (sortedBlocks.length === 1) {
-      // start from scratch
-      const blockHash = this.config.types.BeaconBlock.hashTreeRoot(firstBlock.message);
-      if (this.config.types.Root.equals(blockHash, this.forkChoice.headBlockRoot())) {
-        this.logger.info("Chain is up to date, no need to restore");
-        return;
-      }
-    }
+    this.logger.info(`Found ${sortedBlocks.length} nonfinalized blocks in database from slot ` +
+      `${firstSlot} to ${lastSlot}`);
     const isCheckpointNotGenesis = lastKnownState.slot > GENESIS_SLOT;
     const stateRoot = this.config.types.BeaconState.hashTreeRoot(lastKnownState);
     const finalizedBlock = sortedBlocks.find(block => {
@@ -304,7 +296,7 @@ export class BeaconChain extends (EventEmitter as { new(): ChainEventEmitter }) 
     // no need to process the finalized block
     const processedBlocks = sortedBlocks.filter((block) => block.message.slot > finalizedBlock.message.slot);
     if (!processedBlocks.length) {
-      this.logger.info("No need to process blocks");
+      this.logger.info("No need to reprocess blocks");
       return;
     }
     firstSlot = processedBlocks[0].message.slot;

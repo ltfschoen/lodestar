@@ -179,7 +179,7 @@ export class ArrayDagLMDGHOST implements ILMDGHOST {
   }
 
   public async stop(): Promise<void> {
-    this.clock.unsubscribeFromNewEpoch(this.onTick);
+    this.clock && this.clock.unsubscribeFromNewEpoch(this.onTick);
   }
 
   public onTick(): void {

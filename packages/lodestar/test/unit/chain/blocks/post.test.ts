@@ -58,7 +58,7 @@ describe("post block process stream", function () {
     const item = {
       preStateContext,
       postStateContext,
-      block
+      job: {signedBlock: block, trusted: false, reprocess: false}
     };
     await pipe(
       [item],
@@ -86,7 +86,7 @@ describe("post block process stream", function () {
     const item = {
       preStateContext,
       postStateContext,
-      block
+      job: {signedBlock: block, trusted: false, reprocess: false}
     };
     await pipe(
       [item],
@@ -123,7 +123,7 @@ describe("post block process stream", function () {
     const item = {
       preStateContext,
       postStateContext,
-      block
+      job: {signedBlock: block, trusted: false, reprocess: false}
     };
     dbStub.block.get.resolves(block);
     await pipe(

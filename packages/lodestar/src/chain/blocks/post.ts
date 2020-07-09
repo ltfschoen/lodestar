@@ -7,7 +7,8 @@ import {IBeaconMetrics} from "../../metrics";
 import {ChainEventEmitter, IAttestationProcessor} from "../interface";
 import {ILMDGHOST} from "../forkChoice";
 import {ITreeStateContext} from "../../db/api/beacon/stateContextCache";
-import {TreeBacked} from "@chainsafe/ssz";
+import {TreeBacked, toHexString} from "@chainsafe/ssz";
+import {IBlockProcessJob} from "../chain";
 
 export function postProcess(
   config: IBeaconConfig,
@@ -20,12 +21,12 @@ export function postProcess(
 ): (source: AsyncIterable<{
     preStateContext: ITreeStateContext;
     postStateContext: ITreeStateContext;
-    block: SignedBeaconBlock;
-    finalized: boolean;
+    job: IBlockProcessJob;
   }>) => Promise<void> {
   return async (source) => {
     return (async function() {
-      for await(const {block, preStateContext, postStateContext, finalized} of source) {
+      for await(const {job, preStateContext, postStateContext} of source) {
+        const {signedBlock: block, trusted: finalized, reprocess} = job;
         await db.processBlockOperations(block);
         if(!finalized) {
           await attestationProcessor.receiveBlock(block);
@@ -36,7 +37,7 @@ export function postProcess(
         const preFinalizedEpoch = preStateContext.state.finalizedCheckpoint.epoch;
         const preJustifiedEpoch = preStateContext.state.currentJustifiedCheckpoint.epoch;
         const currentEpoch = computeEpochAtSlot(config, postStateContext.state.slot);
-        if (computeEpochAtSlot(config, preSlot) < currentEpoch) {
+        if (!reprocess && computeEpochAtSlot(config, preSlot) < currentEpoch) {
           eventBus.emit(
             "processedCheckpoint",
             {epoch: currentEpoch, root: forkChoice.getCanonicalBlockSummaryAtSlot(preSlot).blockRoot},
@@ -65,7 +66,7 @@ function newJustifiedEpoch(
   eventBus: ChainEventEmitter,
   state: TreeBacked<BeaconState>
 ): void {
-  logger.important(`Epoch ${state.currentJustifiedCheckpoint.epoch} is justified!`);
+  logger.important(`Epoch ${state.currentJustifiedCheckpoint.epoch} is justified at root ${toHexString(state.currentJustifiedCheckpoint.root)}!`);
   metrics.previousJustifiedEpoch.set(state.previousJustifiedCheckpoint.epoch);
   metrics.currentJustifiedEpoch.set(state.currentJustifiedCheckpoint.epoch);
   eventBus.emit("justifiedCheckpoint", state.currentJustifiedCheckpoint);
@@ -77,7 +78,7 @@ function newFinalizedEpoch(
   eventBus: ChainEventEmitter,
   state: TreeBacked<BeaconState>
 ): void {
-  logger.important(`Epoch ${state.finalizedCheckpoint.epoch} is finalized!`);
+  logger.important(`Epoch ${state.finalizedCheckpoint.epoch} is finalized at root ${toHexString(state.finalizedCheckpoint.root)}!`);
   metrics.currentFinalizedEpoch.set(state.finalizedCheckpoint.epoch);
   eventBus.emit("finalizedCheckpoint", state.finalizedCheckpoint);
 }
