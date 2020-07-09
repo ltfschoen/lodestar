@@ -1,5 +1,5 @@
 import {computeEpochAtSlot} from "@chainsafe/lodestar-beacon-state-transition";
-import {BeaconState, SignedBeaconBlock} from "@chainsafe/lodestar-types";
+import {BeaconState} from "@chainsafe/lodestar-types";
 import {IBeaconConfig} from "@chainsafe/lodestar-config";
 import {IBeaconDb} from "../../db/api";
 import {ILogger} from "@chainsafe/lodestar-utils/lib/logger";
@@ -66,7 +66,8 @@ function newJustifiedEpoch(
   eventBus: ChainEventEmitter,
   state: TreeBacked<BeaconState>
 ): void {
-  logger.important(`Epoch ${state.currentJustifiedCheckpoint.epoch} is justified at root ${toHexString(state.currentJustifiedCheckpoint.root)}!`);
+  logger.important(`Epoch ${state.currentJustifiedCheckpoint.epoch} is justified at root
+    ${toHexString(state.currentJustifiedCheckpoint.root)}!`);
   metrics.previousJustifiedEpoch.set(state.previousJustifiedCheckpoint.epoch);
   metrics.currentJustifiedEpoch.set(state.currentJustifiedCheckpoint.epoch);
   eventBus.emit("justifiedCheckpoint", state.currentJustifiedCheckpoint);
@@ -78,7 +79,8 @@ function newFinalizedEpoch(
   eventBus: ChainEventEmitter,
   state: TreeBacked<BeaconState>
 ): void {
-  logger.important(`Epoch ${state.finalizedCheckpoint.epoch} is finalized at root ${toHexString(state.finalizedCheckpoint.root)}!`);
+  logger.important(`Epoch ${state.finalizedCheckpoint.epoch} is finalized at root
+    ${toHexString(state.finalizedCheckpoint.root)}!`);
   metrics.currentFinalizedEpoch.set(state.finalizedCheckpoint.epoch);
   eventBus.emit("finalizedCheckpoint", state.finalizedCheckpoint);
 }
