@@ -11,7 +11,6 @@ export abstract class AbstractApiClient
   extends (EventEmitter as { new(): ApiClientEventEmitter })
   implements IApiClient {
 
-
   protected config: IBeaconConfig;
 
   private currentSlot: Slot = 0;
@@ -69,7 +68,7 @@ export abstract class AbstractApiClient
     if (!this.running) {
       return;
     }
-    const genesisTime =  await this.beacon.getGenesisTime();
+    const genesisTime = await this.beacon.getGenesisTime();
     if (genesisTime && Math.floor(Date.now() / 1000) >= genesisTime) {
       this.emit("beaconChainStarted");
       clearInterval(this.beaconNodeInterval);

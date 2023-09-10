@@ -23,7 +23,7 @@ packages/lodestar/src
 ├── params - needed
 ├── rpc - needed
 ├── sszTypes - needed 
-├── sync - potnetially
+├── sync - potentially
 ├── types - needed 
 ├── util - potentially
 └── validator - no
