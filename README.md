@@ -28,6 +28,32 @@ Lodestar is a Typescript implementation of the Ethereum 2.0 specification develo
 - [Donations](#donations)
 - [Packages](#packages)
 
+## Docker
+
+```bash
+time ./docker/docker.sh
+docker exec -w /eip-x/lodestar -it --user=root lodestar-dev /bin/bash
+sed -i 's/maxOpenFiles:80/maxOpenFiles:1/g' .yarn/releases/yarn-3.6.3.cjs
+time yarn install --network-timeout 1000000000
+```
+
+Error:
+```
+➤ YN0001: │ Error: Couldn't allocate enough memory
+    at ZipFS.allocateBuffer ([worker eval]:1:40610)
+    at ZipFS.allocateSource ([worker eval]:1:41045)
+    at ZipFS.setFileSource ([worker eval]:1:41318)
+    at ZipFS.writeFileSync ([worker eval]:1:46409)
+    at extractArchiveTo ([worker eval]:1:466938)
+    at async MessagePort.<anonymous> ([worker eval]:1:468587)
+➤ YN0000: └ Completed in 13s 805ms
+➤ YN0000: Failed with errors in 45s 358ms
+
+real	0m46.226s
+user	0m22.300s
+sys	0m7.837s
+```
+
 ## Contributors
 
 Read our [contributors document](/CONTRIBUTING.md), [submit an issue](https://github.com/ChainSafe/lodestar/issues/new/choose) or talk to us on our [discord](https://discord.gg/yjyvFRP)!

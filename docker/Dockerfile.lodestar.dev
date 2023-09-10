@@ -1,0 +1,132 @@
+FROM docker.io/library/ubuntu:23.04
+
+ARG NODE_ENV=${NODE_ENV}
+ARG PUBLIC_IP_ADDRESS=${PUBLIC_IP_ADDRESS}
+ARG HOST=${HOST}
+
+ARG PATH_PROJECT=/eip-x
+ARG PATH_MAIN=${PATH_PROJECT}/lodestar
+
+ENV HOME /root
+WORKDIR ${PATH_MAIN}
+
+# See https://github.com/nodesource/distributions#debian-and-ubuntu-based-distributions
+ARG NODE_MAJOR="20"
+ARG RUST_NIGHTLY="2022-10-28"
+ARG BRANCH_NAME=eip-x
+ARG REPO_URL="https://github.com/clawbird/lodestar.git"
+ARG YARN_VERSION="3.6.3"
+
+ENV RUSTUP_HOME=$HOME/rustup \
+  CARGO_HOME=$HOME/cargo \
+  PATH=$HOME/cargo/bin:$PATH:${PATH_MAIN}/node_modules/.bin:$PATH \
+  DEBIAN_FRONTEND=noninteractive \
+  LANG=C.UTF-8 \
+  NODE_ENV=${NODE_ENV} \
+  PUBLIC_IP_ADDRESS=${PUBLIC_IP_ADDRESS} \
+  HOST=${HOST}
+
+# # non-root user. `cat /etc/passwd`
+# RUN useradd -m -u 1001 -U -s /bin/sh -d ${PATH_PROJECT} lodestar-user && \
+#   chown -R lodestar-user:lodestar-user ${PATH_PROJECT} && \
+#   chgrp lodestar-user ${PATH_PROJECT} && \
+#   chgrp -R lodestar-user ${PATH_PROJECT} && \
+#   chmod 770 ${PATH_PROJECT} && \
+#   chmod -R 770 ${PATH_PROJECT}
+
+# COPY --chown=lodestar-user:lodestar-user . ${PATH_MAIN}
+# COPY . ${PATH_MAIN}
+COPY ./shopt ${PATH_PROJECT}/shopt
+
+RUN set -e && \
+  apt-get -y update --fix-missing && \
+  apt-get -y upgrade && \
+  apt-get -y dist-upgrade && \
+  apt-get install -y build-essential pkg-config && \
+  apt-get install -y git curl wget jq lsof unzip vim sudo apt-utils && \
+  # Rust. Note: Rust is not actually required to be installed by Axiom
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs/ | sh -s -- --default-toolchain nightly -y && \
+  rustup component add rust-src rustfmt clippy && \
+  rustup target add wasm32-unknown-unknown && \
+  rustup toolchain install "nightly-${RUST_NIGHTLY}" --profile minimal --component rustfmt && \
+  rustup default "nightly-${RUST_NIGHTLY}" && \
+  rustup override set "nightly-${RUST_NIGHTLY}" && \
+  # install wasm target into nightly toolchain
+  rustup target add wasm32-unknown-unknown --toolchain "nightly-${RUST_NIGHTLY}" && \
+  . $HOME/cargo/env && \
+  rustc --version && \
+  rustup show && \
+  # Node.js and npm
+  # exec bash && \
+  # try to solve `/bin/sh: 13: /root/.bashrc: shopt: not found` error
+  cp ${PATH_PROJECT}/shopt /usr/local/bin/shopt && \
+  ln -s /usr/local/bin/shopt /usr/bin/shopt && \
+  # echo "alias shopt='/usr/bin/shopt'" >> $HOME/.bashrc && \
+  . $HOME/.bashrc && \
+  # Install LTS node https://github.com/nodesource/distributions#manual-installation
+  cd ${PATH_MAIN} && \
+  # Download and import the Nodesource GPG key
+  apt-get install -y ca-certificates curl gnupg && \
+  mkdir -p /etc/apt/keyrings && \
+  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+  # Create deb repository
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+  # Run Update and Install
+  apt-get update && \
+  apt-get install -y nodejs && \
+  node --version && \
+  . $HOME/.bashrc && \
+  # Install Yarn
+  rm -rf /etc/apt/sources.list.d/yarn.list && \
+  rm -rf /usr/share/keyrings/yarn.list && \
+  # curl -fsSL https://dl.yarnpkg.com/debian/pubkey.gpg | sudo gpg --dearmor -o /usr/share/keyrings/yarn.gpg && \
+  # echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /usr/share/keyrings/yarn.list && \
+  # curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo tee /etc/apt/trusted.gpg.d/yarn.gpg && \
+  # # https://stackoverflow.com/a/54411131/3208553
+  # gpg --no-default-keyring --keyring /etc/apt/trusted.gpg.d/yarn.gpg --export > /etc/apt/trusted.gpg.d/yarn.fixed.gpg && \
+  # echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list && \
+  # apt-get update && \
+  # Node.js has already been installed so use `--no-install-recommends`
+  # apt-get install -y --no-install-recommends yarn && \
+  cd ${PATH_PROJECT} && \
+  git clone ${REPO_URL} && \
+  cd lodestar && \
+  git fetch origin ${BRANCH_NAME}:${BRANCH_NAME} && \
+  git checkout ${BRANCH_NAME} && \
+  corepack enable && \
+  corepack prepare yarn@stable --activate && \
+  # sets the `yarnPath` in .yarnrc.yml and sets the `packageManager` in package.json
+  yarn set version ${YARN_VERSION} && \
+  # add the plugin in .yarnrc.yml
+  yarn plugin import interactive-tools && \
+  # yarn 3 package manager is modularized so you have to install the workspaces plugin
+  # in order to prune out devDependencies. this is suggested because the Node.js runtime
+  # will not need devDependencies installed, so it is preferred to remove them after the build
+  # is complete so that they are not compiled into the slug
+  yarn plugin import workspace-tools && \
+  printf "nodeLinker: node-modules\n\n$(cat ${PATH_MAIN}/.yarnrc.yml)" >> ${PATH_MAIN}/.yarnrc.yml && \
+  # opt out of zero-installs feature so also need to add `nodeLinker: "node-modules"` to .yarnrc.yml
+  # note: must use single quotes to use bang character with `echo` command
+  printf ".pnp.*\n.yarn/*\n!.yarn/patches\n!.yarn/plugins\n!.yarn/releases\n!.yarn/sdks\n!.yarn/versions" >> ${PATH_MAIN}/.gitignore && \
+  jq '.packageManager="yarn@${YARN_VERSION}"' ${PATH_MAIN}/package.json && \
+  printf "Installing ${PATH_MAIN} dependencies across packages..." && \
+  yarn cache clean --all && \
+  # https://github.com/yarnpkg/berry/issues/3972#issuecomment-1589125670
+  # to resolve issue `Couldn't allocate enough memory` even if have lots of memory available
+  # still get error even if change `maxOpenFiles` to `1`
+  sed -i 's/maxOpenFiles:80/maxOpenFiles:10/g' .yarn/releases/yarn-3.6.3.cjs && \
+  # multiple days timeout
+  yarn install --network-timeout 1000000000 && \
+  # yarn cache clean && \
+  # printf "Building ${PATH_MAIN} across packages..." && \
+  # yarn run build
+  # chown -R lodestar-user:lodestar-user ${PATH_MAIN}/node_modules && \
+  # chgrp lodestar-user ${PATH_MAIN}/node_modules && \
+  # chgrp -R lodestar-user ${PATH_MAIN}/node_modules && \
+  # chmod 770 ${PATH_MAIN}/node_modules && \
+  # chmod -R 770 ${PATH_MAIN}/node_modules
+
+EXPOSE 5000 5500 8588 9596 30606
+
+# USER lodestar-user
+CMD tail -f /dev/null
