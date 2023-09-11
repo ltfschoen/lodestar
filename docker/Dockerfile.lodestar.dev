@@ -1,4 +1,4 @@
-FROM docker.io/library/ubuntu:23.04
+FROM docker.io/library/ubuntu:22.04
 
 ARG NODE_ENV=${NODE_ENV}
 ARG PUBLIC_IP_ADDRESS=${PUBLIC_IP_ADDRESS}
@@ -44,18 +44,18 @@ RUN set -e && \
   apt-get -y dist-upgrade && \
   apt-get install -y build-essential pkg-config && \
   apt-get install -y git curl wget jq lsof unzip vim sudo apt-utils && \
-  # Rust. Note: Rust is not actually required to be installed by Axiom
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs/ | sh -s -- --default-toolchain nightly -y && \
-  rustup component add rust-src rustfmt clippy && \
-  rustup target add wasm32-unknown-unknown && \
-  rustup toolchain install "nightly-${RUST_NIGHTLY}" --profile minimal --component rustfmt && \
-  rustup default "nightly-${RUST_NIGHTLY}" && \
-  rustup override set "nightly-${RUST_NIGHTLY}" && \
-  # install wasm target into nightly toolchain
-  rustup target add wasm32-unknown-unknown --toolchain "nightly-${RUST_NIGHTLY}" && \
-  . $HOME/cargo/env && \
-  rustc --version && \
-  rustup show && \
+  # # Rust. Note: Rust is not actually required to be installed by Axiom
+  # curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs/ | sh -s -- --default-toolchain nightly -y && \
+  # rustup component add rust-src rustfmt clippy && \
+  # rustup target add wasm32-unknown-unknown && \
+  # rustup toolchain install "nightly-${RUST_NIGHTLY}" --profile minimal --component rustfmt && \
+  # rustup default "nightly-${RUST_NIGHTLY}" && \
+  # rustup override set "nightly-${RUST_NIGHTLY}" && \
+  # # install wasm target into nightly toolchain
+  # rustup target add wasm32-unknown-unknown --toolchain "nightly-${RUST_NIGHTLY}" && \
+  # . $HOME/cargo/env && \
+  # rustc --version && \
+  # rustup show && \
   # Node.js and npm
   # exec bash && \
   # try to solve `/bin/sh: 13: /root/.bashrc: shopt: not found` error
@@ -65,6 +65,7 @@ RUN set -e && \
   . $HOME/.bashrc && \
   # Install LTS node https://github.com/nodesource/distributions#manual-installation
   cd ${PATH_MAIN} && \
+  # https://github.com/nodesource/distributions#supported-versions
   # Download and import the Nodesource GPG key
   apt-get install -y ca-certificates curl gnupg && \
   mkdir -p /etc/apt/keyrings && \
@@ -79,44 +80,47 @@ RUN set -e && \
   # Install Yarn
   rm -rf /etc/apt/sources.list.d/yarn.list && \
   rm -rf /usr/share/keyrings/yarn.list && \
-  # curl -fsSL https://dl.yarnpkg.com/debian/pubkey.gpg | sudo gpg --dearmor -o /usr/share/keyrings/yarn.gpg && \
-  # echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /usr/share/keyrings/yarn.list && \
+  curl -fsSL https://dl.yarnpkg.com/debian/pubkey.gpg | sudo gpg --dearmor -o /usr/share/keyrings/yarn.gpg && \
+  gpg --no-default-keyring --keyring /usr/share/keyrings/yarn.gpg --export > /usr/share/keyrings/yarn.fixed.gpg && \
+  echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /usr/share/keyrings/yarn.list && \
   # curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo tee /etc/apt/trusted.gpg.d/yarn.gpg && \
   # # https://stackoverflow.com/a/54411131/3208553
   # gpg --no-default-keyring --keyring /etc/apt/trusted.gpg.d/yarn.gpg --export > /etc/apt/trusted.gpg.d/yarn.fixed.gpg && \
   # echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list && \
-  # apt-get update && \
+  apt-get update && \
   # Node.js has already been installed so use `--no-install-recommends`
-  # apt-get install -y --no-install-recommends yarn && \
+  apt-get install -y --no-install-recommends yarn && \
   cd ${PATH_PROJECT} && \
   git clone ${REPO_URL} && \
   cd lodestar && \
   git fetch origin ${BRANCH_NAME}:${BRANCH_NAME} && \
-  git checkout ${BRANCH_NAME} && \
-  corepack enable && \
-  corepack prepare yarn@stable --activate && \
-  # sets the `yarnPath` in .yarnrc.yml and sets the `packageManager` in package.json
-  yarn set version ${YARN_VERSION} && \
-  # add the plugin in .yarnrc.yml
-  yarn plugin import interactive-tools && \
-  # yarn 3 package manager is modularized so you have to install the workspaces plugin
-  # in order to prune out devDependencies. this is suggested because the Node.js runtime
-  # will not need devDependencies installed, so it is preferred to remove them after the build
-  # is complete so that they are not compiled into the slug
-  yarn plugin import workspace-tools && \
-  printf "nodeLinker: node-modules\n\n$(cat ${PATH_MAIN}/.yarnrc.yml)" >> ${PATH_MAIN}/.yarnrc.yml && \
-  # opt out of zero-installs feature so also need to add `nodeLinker: "node-modules"` to .yarnrc.yml
-  # note: must use single quotes to use bang character with `echo` command
-  printf ".pnp.*\n.yarn/*\n!.yarn/patches\n!.yarn/plugins\n!.yarn/releases\n!.yarn/sdks\n!.yarn/versions" >> ${PATH_MAIN}/.gitignore && \
-  jq '.packageManager="yarn@${YARN_VERSION}"' ${PATH_MAIN}/package.json && \
-  printf "Installing ${PATH_MAIN} dependencies across packages..." && \
-  yarn cache clean --all && \
+  git checkout ${BRANCH_NAME}
+  # corepack enable && \
+  # corepack prepare yarn@stable --activate && \
+  # # sets the `yarnPath` in .yarnrc.yml and sets the `packageManager` in package.json
+  # yarn set version ${YARN_VERSION} && \
+  # # add the plugin in .yarnrc.yml
+  # yarn plugin import interactive-tools && \
+  # # yarn 3 package manager is modularized so you have to install the workspaces plugin
+  # # in order to prune out devDependencies. this is suggested because the Node.js runtime
+  # # will not need devDependencies installed, so it is preferred to remove them after the build
+  # # is complete so that they are not compiled into the slug
+  # yarn plugin import workspace-tools && \
+  # printf "nodeLinker: node-modules\n\n$(cat ${PATH_MAIN}/.yarnrc.yml)" >> ${PATH_MAIN}/.yarnrc.yml && \
+  # # opt out of zero-installs feature so also need to add `nodeLinker: "node-modules"` to .yarnrc.yml
+  # # note: must use single quotes to use bang character with `echo` command
+  # printf ".pnp.*\n.yarn/*\n!.yarn/patches\n!.yarn/plugins\n!.yarn/releases\n!.yarn/sdks\n!.yarn/versions" >> ${PATH_MAIN}/.gitignore && \
+  # jq ".packageManager=\"yarn@${YARN_VERSION}\"" ${PATH_MAIN}/package.json && \
+  # printf "Installing ${PATH_MAIN} dependencies across packages..." && \
+  # yarn cache clean --all && \
   # https://github.com/yarnpkg/berry/issues/3972#issuecomment-1589125670
   # to resolve issue `Couldn't allocate enough memory` even if have lots of memory available
   # still get error even if change `maxOpenFiles` to `1`
-  sed -i 's/maxOpenFiles:80/maxOpenFiles:10/g' .yarn/releases/yarn-3.6.3.cjs && \
+  # sed -i 's/maxOpenFiles:80/maxOpenFiles:10/g' .yarn/releases/yarn-3.6.3.cjs && \
   # multiple days timeout
-  yarn install --network-timeout 1000000000 && \
+  # note: `--max-old-space-size` value of `8192` would allocate 8.192 Gb of memory
+  # still get `Couldn't allocate enough memory` error on Node.js v20.6.1
+  # export NODE_OPTIONS="--no-huge-max-old-generation-size --max-old-space-size=8192" && yarn install --network-timeout 1000000000
   # yarn cache clean && \
   # printf "Building ${PATH_MAIN} across packages..." && \
   # yarn run build
