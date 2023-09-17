@@ -20,7 +20,7 @@ describeDirectorySpecTest<ISignMessageTestCase, string>(
   "BLS - sign",
   path.join(
     __dirname,
-    "../../../../../node_modules/@chainsafe/eth2-spec-tests/tests/general/phase0/bls/sign/small"
+    "../../../../../node_modules/.pnpm/@chainsafe/eth2-spec-tests/tests/general/phase0/bls/sign/small"
   ),
   (testCase => {
     const signature =  bls.sign(

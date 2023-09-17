@@ -19,16 +19,16 @@
     "lib/**/*.js.map"
   ],
   "scripts": {
-    "build": "yarn build:lib && yarn build:types",
+    "build": "pnpm run build:lib && pnpm run build:types",
     "build:docs": "typedoc --exclude src/index.ts --out docs src",
     "build:lib": "babel src -x .ts -d lib --source-maps",
-    "build:release": "yarn clean && yarn build",
+    "build:release": "pnpm run clean && pnpm run build",
     "build:types": "tsc --incremental --declaration --outDir lib --project tsconfig.build.json --emitDeclarationOnly",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf lib && rm -f tsconfig.tsbuildinfo && rm -f tsconfig.build.tsbuildinfo",
     "lint": "eslint --color --ext .ts src/",
     "lint:fix": "eslint --color --ext .ts src/ --fix",
-    "prepublishOnly": "yarn build",
+    "prepublishOnly": "pnpm run build",
     "test:unit": "mocha --colors -r ts-node/register 'test/**/*.test.ts'"
   },
   "types": "lib/index.d.ts",

@@ -17,7 +17,7 @@ describeDirectorySpecTest<IAggregateSigsTestCase, string>(
   "BLS - aggregate sigs",
   path.join(
     __dirname,
-    "../../../../../node_modules/@chainsafe/eth2-spec-tests/tests/general/phase0/bls/aggregate/small"
+    "../../../../../node_modules/.pnpm/@chainsafe/eth2-spec-tests/tests/general/phase0/bls/aggregate/small"
   ),
   (testCase => {
     try {

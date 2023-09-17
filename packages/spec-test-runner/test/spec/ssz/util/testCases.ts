@@ -7,7 +7,7 @@ import {expect} from "chai";
 import {IBaseSSZStaticTestCase} from "../type";
 import { CompositeType } from "@chainsafe/ssz";
 
-export const TEST_CASE_LOCATION = "../../../../../../node_modules/@chainsafe/eth2-spec-tests";
+export const TEST_CASE_LOCATION = "../../../../../../node_modules/.pnpm/@chainsafe/eth2-spec-tests";
 
 interface IResult {
   root: Bytes32;

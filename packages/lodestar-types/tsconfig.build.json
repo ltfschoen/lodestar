@@ -3,7 +3,7 @@
   "include": ["src"],
   "compilerOptions": {
     "typeRoots": [
-      "../../node_modules/@types"
+      "../../node_modules/.pnpm/@types"
     ],
     "outDir": "lib",
     /* Redirect output structure to the directory. */

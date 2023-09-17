@@ -5,8 +5,8 @@
   "compilerOptions": {
     "target": "es2020",
     "typeRoots": [
-      "../../node_modules/@types",
-      "../../node_modules/libp2p-ts/types",
+      "../../node_modules/.pnpm/@types",
+      "../../node_modules/.pnpm/libp2p-ts/types",
       "../lodestar/types"
     ],
     "outDir": "lib",

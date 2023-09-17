@@ -18,6 +18,9 @@
     "@babel/proposal-class-properties",
     "@babel/proposal-object-rest-spread",
     "@babel/plugin-syntax-bigint",
-    "const-enum"
+    "const-enum",
+    "@babel/plugin-proposal-unicode-sets-regex",
+    "@babel/plugin-transform-unicode-sets-regex",
+    "@babel/plugin-transform-unicode-regex"
   ]
 }
