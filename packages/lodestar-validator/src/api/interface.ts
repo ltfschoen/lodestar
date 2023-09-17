@@ -40,7 +40,7 @@ export interface IApiClient extends ApiClientEventEmitter {
 
   /**
    * Invokes callback on new slot.
-   * Depending on implementation it will poll for new slot or getting notified(Websockets)
+   * Depending on implementation it will poll for new slot or get notified (Websockets)
    * @param cb
    */
   onNewSlot(cb: INewSlotCallback): void;
@@ -48,7 +48,7 @@ export interface IApiClient extends ApiClientEventEmitter {
 
   /**
    * Invokes callback on new epoch.
-   * Depending on implementation it will poll for new epoch or getting notified(Websockets)
+   * Depending on implementation it will poll for new epoch or get notified (Websockets)
    * @param cb
    */
   onNewEpoch(cb: INewEpochCallback): void;

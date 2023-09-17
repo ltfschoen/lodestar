@@ -8,6 +8,7 @@ Dockerfile
 *.log
 **/*.log
 node_modules
+data
 **/.nyc_output
 **/coverage
 **/node_modules

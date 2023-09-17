@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  lodestar:
+    container_name: lodestar-dev
+    restart: always
+    build:
+      context: "."
+      dockerfile: ./docker/Dockerfile.lodestar.dev
+      args:
+        - HOST=${HOST}
+    environment:
+      HOST: ${HOST}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # size when running
+    shm_size: 1gb
+    ports:
+      # metrics
+      - "5000:5000"
+      - "5500:5500"
+      # eth1 node
+      - "8588:8545"
+      # REST port beacon node server
+      - "9596:9596"
+      # multaddr
+      - "30606:30606"
+    # https://github.com/docker/for-mac/issues/1996#issuecomment-408336035
+    volumes:
+      - /var/lib/docker/containers:/mnt/log/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # database
+      - ./data:/root/.helios/data/
+
+volumes:
+  ignore:
