@@ -2,8 +2,8 @@
   "extends": "./tsconfig",
   "compilerOptions": {
     "typeRoots": [
-      "../../node_modules/@types",
-      "../../node_modules/@types/mocha",
+      "../../node_modules/.pnpm/@types",
+      "../../node_modules/.pnpm/@types/mocha",
       "./node_modules/@types"
     ],
     "strict": false

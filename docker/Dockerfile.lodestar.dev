@@ -1,4 +1,5 @@
-FROM docker.io/library/ubuntu:22.04
+# Node.js 12.x not supported on 22.04
+FROM docker.io/library/ubuntu:18.04
 
 ARG NODE_ENV=${NODE_ENV}
 ARG PUBLIC_IP_ADDRESS=${PUBLIC_IP_ADDRESS}
@@ -11,11 +12,12 @@ ENV HOME /root
 WORKDIR ${PATH_MAIN}
 
 # See https://github.com/nodesource/distributions#debian-and-ubuntu-based-distributions
-ARG NODE_MAJOR="20"
+ARG NODE_MAJOR="18"
 ARG RUST_NIGHTLY="2022-10-28"
 ARG BRANCH_NAME=eip-x
 ARG REPO_URL="https://github.com/clawbird/lodestar.git"
-ARG YARN_VERSION="3.6.3"
+ARG YARN_VERSION="3.6.0"
+ARG PNPM_VERSION="6.32.20"
 
 ENV RUSTUP_HOME=$HOME/rustup \
   CARGO_HOME=$HOME/cargo \
@@ -37,6 +39,8 @@ ENV RUSTUP_HOME=$HOME/rustup \
 # COPY --chown=lodestar-user:lodestar-user . ${PATH_MAIN}
 # COPY . ${PATH_MAIN}
 COPY ./shopt ${PATH_PROJECT}/shopt
+COPY ./pnpm-workspace.yaml ${PATH_MAIN}/pnpm-workspace.yaml
+COPY . ${PATH_MAIN}
 
 RUN set -e && \
   apt-get -y update --fix-missing && \
@@ -69,77 +73,102 @@ RUN set -e && \
   # Download and import the Nodesource GPG key
   apt-get install -y ca-certificates curl gnupg && \
   mkdir -p /etc/apt/keyrings && \
-  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-  # Create deb repository
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
-  # Run Update and Install
+  # curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+  # # Create deb repository
+  # echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+  # # Run Update and Install
+  # apt-get update && \
+  # apt-get install -y nodejs && \
+  # node --version && \
   apt-get update && \
-  apt-get install -y nodejs && \
+  apt-get -y upgrade && \
+  apt-get -y install curl dirmngr apt-transport-https lsb-release ca-certificates && \
+  curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash - && \
+  apt-get -y install nodejs && \
+  apt-get -y install gcc g++ make && \
   node --version && \
-  . $HOME/.bashrc && \
-  # Install Yarn
-  rm -rf /etc/apt/sources.list.d/yarn.list && \
-  rm -rf /usr/share/keyrings/yarn.list && \
-  curl -fsSL https://dl.yarnpkg.com/debian/pubkey.gpg | sudo gpg --dearmor -o /usr/share/keyrings/yarn.gpg && \
-  gpg --no-default-keyring --keyring /usr/share/keyrings/yarn.gpg --export > /usr/share/keyrings/yarn.fixed.gpg && \
-  echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /usr/share/keyrings/yarn.list && \
-  # curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo tee /etc/apt/trusted.gpg.d/yarn.gpg && \
-  # # https://stackoverflow.com/a/54411131/3208553
-  # gpg --no-default-keyring --keyring /etc/apt/trusted.gpg.d/yarn.gpg --export > /etc/apt/trusted.gpg.d/yarn.fixed.gpg && \
-  # echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list && \
-  apt-get update && \
-  # Node.js has already been installed so use `--no-install-recommends`
-  apt-get install -y --no-install-recommends yarn && \
-  cd ${PATH_PROJECT} && \
-  yarn --version && \
-  git clone ${REPO_URL} && \
-  cd lodestar && \
-  git fetch origin ${BRANCH_NAME}:${BRANCH_NAME} && \
-  git checkout ${BRANCH_NAME} && \
-  npm rm -g yarn && \
-  apt-get remove -y yarn && \
-  yarn --version && \
-  # Install Yarn 3
-  npm install -g corepack && \
-  npm install -g npm@10.1.0 && \
-  corepack enable && \
-  # Internal Error: EINVAL: invalid argument, readlink '/usr/bin/yarn'
-  # above error appears to be due to missing `corepack`
-  # corepack prepare pnpm@8.7.5 --activate && \
-  corepack prepare yarn@stable --activate && \
-  # sets the `yarnPath` in .yarnrc.yml and sets the `packageManager` in package.json
-  which yarn && \
-  yarn set version ${YARN_VERSION} && \
-  # add the plugin in .yarnrc.yml
-  yarn plugin import interactive-tools && \
-  # yarn 3 package manager is modularized so you have to install the workspaces plugin
-  # in order to prune out devDependencies. this is suggested because the Node.js runtime
-  # will not need devDependencies installed, so it is preferred to remove them after the build
-  # is complete so that they are not compiled into the slug
-  yarn plugin import workspace-tools && \
-  printf "nodeLinker: node-modules\n\n$(cat ${PATH_MAIN}/.yarnrc.yml)" >> ${PATH_MAIN}/.yarnrc.yml && \
-  # opt out of zero-installs feature so also need to add `nodeLinker: "node-modules"` to .yarnrc.yml
-  # note: must use single quotes to use bang character with `echo` command
-  printf ".pnp.*\n.yarn/*\n!.yarn/patches\n!.yarn/plugins\n!.yarn/releases\n!.yarn/sdks\n!.yarn/versions" >> ${PATH_MAIN}/.gitignore && \
-  jq ".packageManager=\"yarn@${YARN_VERSION}\"" ${PATH_MAIN}/package.json && \
-  printf "Installing ${PATH_MAIN} dependencies across packages..." && \
-  yarn cache clean --all && \
-  # https://github.com/yarnpkg/berry/issues/3972#issuecomment-1589125670
-  # to resolve issue `Couldn't allocate enough memory` even if have lots of memory available
-  # still get error even if change `maxOpenFiles` to `1`
-  sed -i 's/maxOpenFiles:80/maxOpenFiles:10/g' .yarn/releases/yarn-3.6.3.cjs && \
-  # multiple days timeout
-  # note: `--max-old-space-size` value of `8192` would allocate 8.192 Gb of memory
-  # still get `Couldn't allocate enough memory` error on Node.js v20.6.1
-  export NODE_OPTIONS="--no-huge-max-old-generation-size --max-old-space-size=8192" && yarn install --network-timeout 1000000000 && \
-  yarn cache clean && \
-  printf "Building ${PATH_MAIN} across packages..." && \
-  yarn run build && \
-  chown -R lodestar-user:lodestar-user ${PATH_MAIN}/node_modules && \
-  chgrp lodestar-user ${PATH_MAIN}/node_modules && \
-  chgrp -R lodestar-user ${PATH_MAIN}/node_modules && \
-  chmod 770 ${PATH_MAIN}/node_modules && \
-  chmod -R 770 ${PATH_MAIN}/node_modules
+  # . $HOME/.bashrc && \
+  # cd ${PATH_PROJECT} && \
+  # git clone ${REPO_URL} && \
+  # cd lodestar && \
+  # git fetch origin ${BRANCH_NAME}:${BRANCH_NAME} && \
+  # git checkout ${BRANCH_NAME} && \
+  # npm install -g npm@7.0.0 && \
+  # npm install -g npm@10.1.0 && \
+  # using latest version get error similar to this https://github.com/pnpm/pnpm/issues/6761
+  # but associated with a .tgz file, so use older version of pnpm
+  npm install -g pnpm@${PNPM_VERSION} && \
+  jq ".npmClient=\"pnpm\"" ${PATH_MAIN}/lerna.json && \
+  # jq ".version=\"${PNPM_VERSION}\"" ${PATH_MAIN}/lerna.json
+  jq ".version=\"6.32.20\"" ${PATH_MAIN}/lerna.json
+  #  && \
+  # pnpm install
+  # && \
+  # printf "Building ${PATH_MAIN} across packages..." && \
+  # pnpm run build
+  # # Install Yarn
+  # rm -rf /etc/apt/sources.list.d/yarn.list && \
+  # rm -rf /usr/share/keyrings/yarn.list && \
+  # curl -fsSL https://dl.yarnpkg.com/debian/pubkey.gpg | sudo gpg --dearmor -o /usr/share/keyrings/yarn.gpg && \
+  # gpg --no-default-keyring --keyring /usr/share/keyrings/yarn.gpg --export > /usr/share/keyrings/yarn.fixed.gpg && \
+  # echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /usr/share/keyrings/yarn.list && \
+  # # curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo tee /etc/apt/trusted.gpg.d/yarn.gpg && \
+  # # # https://stackoverflow.com/a/54411131/3208553
+  # # gpg --no-default-keyring --keyring /etc/apt/trusted.gpg.d/yarn.gpg --export > /etc/apt/trusted.gpg.d/yarn.fixed.gpg && \
+  # # echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list && \
+  # apt-get update && \
+  # # Node.js has already been installed so use `--no-install-recommends`
+  # apt-get install -y --no-install-recommends yarn && \
+  # cd ${PATH_PROJECT} && \
+  # yarn --version && \
+  # git clone ${REPO_URL} && \
+  # cd lodestar && \
+  # git fetch origin ${BRANCH_NAME}:${BRANCH_NAME} && \
+  # git checkout ${BRANCH_NAME} && \
+  # npm rm -g yarn && \
+  # apt-get remove -y yarn && \
+  # yarn --version && \
+  # # Install Yarn 3
+  # npm install -g corepack && \
+  # # npm install -g npm@10.1.0 && \
+  # corepack enable && \
+  # # Internal Error: EINVAL: invalid argument, readlink '/usr/bin/yarn'
+  # # above error appears to be due to missing `corepack`
+  # # corepack prepare pnpm@8.7.5 --activate && \
+  # corepack prepare yarn@stable --activate && \
+  # # sets the `yarnPath` in .yarnrc.yml and sets the `packageManager` in package.json
+  # which yarn && \
+  # yarn set version ${YARN_VERSION} && \
+  # # add the plugin in .yarnrc.yml
+  # yarn plugin import interactive-tools && \
+  # # yarn 3 package manager is modularized so you have to install the workspaces plugin
+  # # in order to prune out devDependencies. this is suggested because the Node.js runtime
+  # # will not need devDependencies installed, so it is preferred to remove them after the build
+  # # is complete so that they are not compiled into the slug
+  # yarn plugin import workspace-tools && \
+  # printf "nodeLinker: node-modules\n\n$(cat ${PATH_MAIN}/.yarnrc.yml)" >> ${PATH_MAIN}/.yarnrc.yml && \
+  # # opt out of zero-installs feature so also need to add `nodeLinker: "node-modules"` to .yarnrc.yml
+  # # note: must use single quotes to use bang character with `echo` command
+  # printf ".pnp.*\n.yarn/*\n!.yarn/patches\n!.yarn/plugins\n!.yarn/releases\n!.yarn/sdks\n!.yarn/versions" >> ${PATH_MAIN}/.gitignore && \
+  # jq ".packageManager=\"yarn@${YARN_VERSION}\"" ${PATH_MAIN}/package.json && \
+  # printf "Installing ${PATH_MAIN} dependencies across packages..." && \
+  # yarn cache clean --all && \
+  # # https://github.com/yarnpkg/berry/issues/3972#issuecomment-1589125670
+  # # to resolve issue `Couldn't allocate enough memory` even if have lots of memory available
+  # # still get error even if change `maxOpenFiles` to `1`
+  # sed -i 's/maxOpenFiles:80/maxOpenFiles:10/g' .yarn/releases/yarn-${YARN_VERSION}.cjs && \
+  # # multiple days timeout
+  # # note: `--max-old-space-size` value of `8192` would allocate 8.192 Gb of memory
+  # # still get `Couldn't allocate enough memory` error on Node.js v20.6.1
+  # export NODE_OPTIONS="--no-huge-max-old-generation-size --max-old-space-size=8192" && yarn install --network-timeout 1000000000 && \
+  # yarn cache clean && \
+  # printf "Building ${PATH_MAIN} across packages..." && \
+  # yarn run build && \
+  # chown -R lodestar-user:lodestar-user ${PATH_MAIN}/node_modules && \
+  # chgrp lodestar-user ${PATH_MAIN}/node_modules && \
+  # chgrp -R lodestar-user ${PATH_MAIN}/node_modules && \
+  # chmod 770 ${PATH_MAIN}/node_modules && \
+  # chmod -R 770 ${PATH_MAIN}/node_modules
 
 EXPOSE 5000 5500 8588 9596 30606
 

@@ -18,15 +18,15 @@
   ],
   "scripts": {
     "clean": "rm -rf lib && rm -f tsconfig.tsbuildinfo",
-    "build": "yarn build:lib && yarn build:types",
-    "build:release": "yarn clean && yarn build && yarn build:docs",
+    "build": "pnpm build:lib && pnpm build:types",
+    "build:release": "pnpm run clean && pnpm build && pnpm build:docs",
     "build:types": "tsc --declaration --incremental --emitDeclarationOnly",
     "build:lib": "babel src -x .ts -d lib --source-maps",
     "build:docs": "typedoc --out docs src",
     "check-types": "tsc --noEmit",
     "lint": "eslint --color --ext .ts src/",
     "lint:fix": "eslint --color --ext .ts src/ --fix",
-    "prepublishOnly": "yarn build"
+    "prepublishOnly": "pnpm build"
   },
   "repository": {
     "type": "git",
@@ -44,7 +44,7 @@
   "dependencies": {
     "benchmark": "^2.1.4",
     "microtime": "^3.0.0",
-    "v8-profiler-next": "^1.1.1"
+    "v8-profiler-next": "^1.9.0"
   },
   "devDependencies": {
     "@types/benchmark": "^1.0.31",

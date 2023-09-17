@@ -25,7 +25,7 @@ describeDirectorySpecTest<AggregateSigsVerifyTestCase, boolean>(
   "BLS - aggregate sigs verify",
   path.join(
     __dirname,
-    "../../../../../node_modules/@chainsafe/eth2-spec-tests/tests/general/phase0/bls/fast_aggregate_verify/small"
+    "../../../../../node_modules/.pnpm/@chainsafe/eth2-spec-tests/tests/general/phase0/bls/fast_aggregate_verify/small"
   ),
   (testCase => {
     return bls.verifyAggregate(

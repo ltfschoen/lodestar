@@ -22,7 +22,7 @@ describeDirectorySpecTest<IVerifyTestCase, boolean>(
   "BLS - verify",
   path.join(
     __dirname,
-    "../../../../../node_modules/@chainsafe/eth2-spec-tests/tests/general/phase0/bls/verify/small"
+    "../../../../../node_modules/.pnpm/@chainsafe/eth2-spec-tests/tests/general/phase0/bls/verify/small"
   ),
   (testCase => {
     return bls.verify(
